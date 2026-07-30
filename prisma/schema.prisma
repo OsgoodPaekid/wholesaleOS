@@ -1,0 +1,221 @@
+// WholesaleOS data model.
+// Money and quantities use Decimal(12,2) so half/quarter packs (0.5, 0.25) are exact.
+// Inventory costing is FIFO: purchases create locked-cost StockBatch rows; sales
+// consume the oldest batches first.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled — used by the app at runtime
+  directUrl = env("DIRECT_URL")   // direct — used by Prisma CLI for migrations/seeding
+}
+
+enum Role {
+  ADMIN
+  STAFF
+  SALESPERSON
+}
+
+enum PaymentStatus {
+  PAID
+  PARTIAL
+  UNPAID
+}
+
+enum StockMovementType {
+  PURCHASE
+  SALE
+  ADJUSTMENT
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         Role     @default(STAFF)
+  active       Boolean  @default(true)
+  // Per-person permissions an admin can switch on for a salesperson.
+  canEditSale   Boolean @default(false)
+  canCancelSale Boolean @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sales             Sale[]
+  purchases         Purchase[]
+  stockAdjustments  StockAdjustment[]
+  expenses          Expense[]
+}
+
+model Category {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  products  Product[]
+}
+
+model Supplier {
+  id        String     @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime   @default(now())
+  purchases Purchase[]
+}
+
+model Customer {
+  id        String   @id @default(cuid())
+  name      String
+  phone     String?
+  email     String?
+  address   String?
+  createdAt DateTime @default(now())
+  sales     Sale[]
+}
+
+model Product {
+  id                String   @id @default(cuid())
+  name              String
+  sku               String   @unique
+  unit              String   @default("pack") // e.g. pack, box, kg
+  sellingPrice      Decimal  @db.Decimal(12, 2)
+  // Current on-hand quantity. Kept in sync with StockBatch remaining totals.
+  stock             Decimal  @default(0) @db.Decimal(12, 2)
+  lowStockThreshold Decimal  @default(5) @db.Decimal(12, 2)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  batches          StockBatch[]
+  purchaseItems    PurchaseItem[]
+  saleItems        SaleItem[]
+  stockAdjustments StockAdjustment[]
+
+  @@index([categoryId])
+}
+
+model Purchase {
+  id          String         @id @default(cuid())
+  reference   String         @unique
+  total       Decimal        @db.Decimal(12, 2)
+  note        String?
+  createdAt   DateTime       @default(now())
+
+  supplierId  String
+  supplier    Supplier       @relation(fields: [supplierId], references: [id])
+  createdById String
+  createdBy   User           @relation(fields: [createdById], references: [id])
+
+  items       PurchaseItem[]
+
+  @@index([supplierId])
+}
+
+model PurchaseItem {
+  id         String   @id @default(cuid())
+  quantity   Decimal  @db.Decimal(12, 2)
+  unitCost   Decimal  @db.Decimal(12, 2)
+  lineTotal  Decimal  @db.Decimal(12, 2)
+
+  purchaseId String
+  purchase   Purchase @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id])
+
+  batch      StockBatch?
+
+  @@index([purchaseId])
+  @@index([productId])
+}
+
+// FIFO layer. One per purchased line. remainingQty drops as sales consume it.
+model StockBatch {
+  id             String   @id @default(cuid())
+  unitCost       Decimal  @db.Decimal(12, 2) // locked at purchase time
+  initialQty     Decimal  @db.Decimal(12, 2)
+  remainingQty   Decimal  @db.Decimal(12, 2)
+  createdAt      DateTime @default(now())
+
+  productId      String
+  product        Product      @relation(fields: [productId], references: [id])
+  purchaseItemId String?      @unique
+  purchaseItem   PurchaseItem? @relation(fields: [purchaseItemId], references: [id])
+
+  @@index([productId, createdAt]) // FIFO ordering
+}
+
+model Sale {
+  id            String        @id @default(cuid())
+  reference     String        @unique
+  subtotal      Decimal       @db.Decimal(12, 2)
+  cogs          Decimal       @db.Decimal(12, 2) // cost of goods sold (from FIFO batches)
+  amountPaid    Decimal       @default(0) @db.Decimal(12, 2)
+  paymentStatus PaymentStatus @default(UNPAID)
+  note          String?
+  createdAt     DateTime      @default(now())
+  // Set when an admin reverses the sale. Reversed sales are kept for the record
+  // but excluded from all totals.
+  voidedAt      DateTime?
+  voidedById    String?
+
+  customerId  String?
+  customer    Customer?  @relation(fields: [customerId], references: [id])
+  createdById String
+  createdBy   User       @relation(fields: [createdById], references: [id])
+
+  items       SaleItem[]
+
+  @@index([customerId])
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id        String  @id @default(cuid())
+  quantity  Decimal @db.Decimal(12, 2)
+  unitPrice Decimal @db.Decimal(12, 2)
+  lineTotal Decimal @db.Decimal(12, 2)
+  unitCost  Decimal @db.Decimal(12, 2) // weighted FIFO cost for this line
+
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model StockAdjustment {
+  id        String   @id @default(cuid())
+  // delta may be negative (loss/breakage) or positive (found stock).
+  delta     Decimal  @db.Decimal(12, 2)
+  reason    String
+  createdAt DateTime @default(now())
+
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  createdById String
+  createdBy   User    @relation(fields: [createdById], references: [id])
+
+  @@index([productId])
+}
+
+model Expense {
+  id        String   @id @default(cuid())
+  title     String
+  amount    Decimal  @db.Decimal(12, 2)
+  category  String   @default("General")
+  note      String?
+  createdAt DateTime @default(now())
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  @@index([createdAt])
+}

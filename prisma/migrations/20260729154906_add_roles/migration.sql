@@ -1,0 +1,7 @@
+-- AlterEnum
+ALTER TYPE "Role" ADD VALUE 'SALESPERSON';
+
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "active" BOOLEAN NOT NULL DEFAULT true,
+ADD COLUMN     "canCancelSale" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "canEditSale" BOOLEAN NOT NULL DEFAULT false;

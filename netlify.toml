@@ -1,0 +1,10 @@
+# Netlify auto-detects Next.js and installs the official Next.js Runtime (v5).
+# This file only pins the build command and Node version so the build is reproducible.
+# Do NOT pin @netlify/plugin-nextjs — Netlify keeps the adapter up to date for you.
+
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "20"
