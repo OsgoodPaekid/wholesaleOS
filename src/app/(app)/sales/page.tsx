@@ -13,7 +13,7 @@ type Sale = {
   paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
   createdAt: string;
   customer: { name: string } | null;
-  items: { id: string }[];
+  items: { id: string; quantity: string; product: { name: string } }[];
   voidedAt: string | null;
 };
 type Summary = { total: number; count: number };
@@ -220,6 +220,7 @@ export default function SalesPage() {
             <tr>
               <th>Invoice</th>
               <th>Customer</th>
+              <th>Products</th>
               <th>Date</th>
               <th className="right">Total</th>
               <th>Status</th>
@@ -229,13 +230,14 @@ export default function SalesPage() {
           <tbody>
             {history.length === 0 ? (
               <tr>
-                <td colSpan={isAdmin ? 6 : 5} className="muted">No sales yet.</td>
+                <td colSpan={isAdmin ? 7 : 6} className="muted">No sales yet.</td>
               </tr>
             ) : (
               history.map((s) => (
                 <tr key={s.id} style={s.voidedAt ? { opacity: 0.55 } : undefined}>
                   <td className="num">{s.reference}</td>
                   <td>{s.customer?.name || "Walk-in"}</td>
+                  <td>{s.items.map((it) => `${Number(it.quantity)} × ${it.product.name}`).join(", ")}</td>
                   <td className="num">{new Date(s.createdAt).toLocaleDateString()}</td>
                   <td className="right num">{cedis(s.subtotal)}</td>
                   <td>

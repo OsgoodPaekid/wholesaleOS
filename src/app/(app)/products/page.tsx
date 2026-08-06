@@ -84,6 +84,22 @@ export default function ProductsPage() {
     }
   }
 
+  async function addCategory() {
+    const name = window.prompt("New category name:");
+    if (!name || !name.trim()) return;
+    setError("");
+    try {
+      const cat = await api<Category>("/categories", {
+        method: "POST",
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      await load();
+      setForm((f) => ({ ...f, categoryId: cat.id }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not add category.");
+    }
+  }
+
   return (
     <>
       <div className="page-head">
@@ -108,8 +124,19 @@ export default function ProductsPage() {
               <input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
             </div>
             <div className="field">
-              <label>Category</label>
+              <label>
+                Category
+                <button
+                  type="button"
+                  onClick={addCategory}
+                  className="btn ghost"
+                  style={{ padding: "1px 8px", fontSize: 12, marginLeft: 8, fontWeight: 600 }}
+                >
+                  + New
+                </button>
+              </label>
               <select value={form.categoryId} onChange={(e) => setForm({ ...form, categoryId: e.target.value })}>
+                {categories.length === 0 && <option value="">Add a category first</option>}
                 {categories.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}

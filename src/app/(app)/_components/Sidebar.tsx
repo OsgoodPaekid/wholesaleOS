@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
 import { api } from "@/lib/client";
 
 const ADMIN_LINKS = [
@@ -28,6 +29,7 @@ const SALES_LINKS = [
 export default function Sidebar({ name, role }: { name: string; role: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [open, setOpen] = useState(false);
   const links = role === "ADMIN" ? ADMIN_LINKS : SALES_LINKS;
 
   async function signOut() {
@@ -37,11 +39,22 @@ export default function Sidebar({ name, role }: { name: string; role: string }) 
   }
 
   return (
-    <aside className="sidebar">
-      <div className="brand">
-        Wholesale<span>OS</span>
+    <aside className={`sidebar ${open ? "open" : ""}`}>
+      <div className="sidebar-top">
+        <div className="brand">
+          Wholesale<span>OS</span>
+        </div>
+        <button
+          className="nav-toggle"
+          onClick={() => setOpen((o) => !o)}
+          aria-label="Toggle menu"
+        >
+          {open ? "✕" : "☰"}
+        </button>
       </div>
-      <nav className="nav">
+
+      {/* Tapping a link also closes the menu on mobile. */}
+      <nav className="nav" onClick={() => setOpen(false)}>
         {links.map((l) => (
           <Link
             key={l.href}
@@ -52,10 +65,13 @@ export default function Sidebar({ name, role }: { name: string; role: string }) 
           </Link>
         ))}
       </nav>
+
       <div className="sidebar-foot">
         Signed in as<br />
         <strong style={{ color: "#fff" }}>{name}</strong>
-        <div style={{ fontSize: 12, marginTop: 2, opacity: 0.7 }}>{role === "ADMIN" ? "Administrator" : "Salesperson"}</div>
+        <div style={{ fontSize: 12, marginTop: 2, opacity: 0.7 }}>
+          {role === "ADMIN" ? "Administrator" : "Salesperson"}
+        </div>
         <button onClick={signOut}>Sign out</button>
       </div>
     </aside>
