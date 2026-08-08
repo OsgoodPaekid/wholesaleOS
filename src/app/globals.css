@@ -147,3 +147,14 @@ input:focus, select:focus { outline: 2px solid var(--accent-weak); border-color:
   .stats { grid-template-columns: repeat(2, 1fr); }
   .main { padding: 20px; }
 }
+
+/* Phone-sized screens: let wide tables scroll sideways, and stack form fields. */
+@media (max-width: 640px) {
+  .page-head { flex-wrap: wrap; gap: 12px; }
+  .page-head h1 { font-size: 21px; }
+  .card .grid { grid-template-columns: 1fr !important; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { min-width: 600px; }
+  .stats { grid-template-columns: 1fr; }
+  .main { padding: 16px; }
+}
