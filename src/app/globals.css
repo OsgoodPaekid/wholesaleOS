@@ -121,6 +121,15 @@ input:focus, select:focus { outline: 2px solid var(--accent-weak); border-color:
 .error { color: var(--danger); font-size: 13px; margin-top: 8px; }
 .muted { color: var(--muted); }
 
+/* Line-item rows on the Purchases & Sales "add item" forms. */
+.line-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr auto;
+  gap: 10px;
+  margin-bottom: 8px;
+  align-items: start;
+}
+
 /* ---------- Login ---------- */
 .auth { display: grid; place-items: center; min-height: 100vh; padding: 20px; }
 .auth .card { width: 100%; max-width: 380px; padding: 28px; }
@@ -157,4 +166,6 @@ input:focus, select:focus { outline: 2px solid var(--accent-weak); border-color:
   table { min-width: 600px; }
   .stats { grid-template-columns: 1fr; }
   .main { padding: 16px; }
+  .line-row { grid-template-columns: 1fr 1fr auto; }
+  .line-row > select { grid-column: 1 / -1; }
 }

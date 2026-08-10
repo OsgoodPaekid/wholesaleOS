@@ -178,7 +178,7 @@ export default function SalesPage() {
           {lines.map((l, i) => {
             const p = products.find((x) => x.id === l.productId);
             return (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 10, marginBottom: 8 }}>
+              <div key={i} className="line-row">
                 <select value={l.productId} onChange={(e) => setLine(i, { productId: e.target.value })}>
                   {products.map((prod) => (
                     <option key={prod.id} value={prod.id}>

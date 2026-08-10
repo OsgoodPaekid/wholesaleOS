@@ -116,7 +116,7 @@ export default function PurchasesPage() {
 
           <label style={{ marginTop: 6 }}>Items</label>
           {lines.map((l, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr auto", gap: 10, marginBottom: 8 }}>
+            <div key={i} className="line-row">
               <select value={l.productId} onChange={(e) => setLine(i, { productId: e.target.value })}>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
