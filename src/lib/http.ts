@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { Prisma } from "@prisma/client";
 import { getSession, type Session } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export const ok = (data: unknown, status = 200) =>
   NextResponse.json(data, { status });
@@ -9,11 +10,22 @@ export const ok = (data: unknown, status = 200) =>
 export const fail = (message: string, status = 400) =>
   NextResponse.json({ error: message }, { status });
 
-// Require a signed-in user. Returns the session or throws a Response.
+// Require a signed-in user. Verifies the session token AND re-checks the
+// account against the database, so disabling or changing a role takes effect
+// immediately (not only when their 7-day token expires). Returns the account's
+// CURRENT role from the database.
 export async function requireUser(): Promise<Session> {
   const session = await getSession();
   if (!session) throw fail("You need to sign in.", 401);
-  return session;
+
+  const user = await prisma.user.findUnique({
+    where: { id: session.userId },
+    select: { id: true, email: true, name: true, role: true, active: true },
+  });
+  if (!user || !user.active) {
+    throw fail("Your session is no longer valid. Please sign in again.", 401);
+  }
+  return { userId: user.id, email: user.email, name: user.name, role: user.role };
 }
 
 export async function requireAdmin(): Promise<Session> {
