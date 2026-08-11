@@ -32,6 +32,7 @@ export default function SalesPage() {
   const [showForm, setShowForm] = useState(false);
 
   const [customerId, setCustomerId] = useState("");
+  const [paidInFull, setPaidInFull] = useState(true);
   const [amountPaid, setAmountPaid] = useState("");
   const [lines, setLines] = useState<Line[]>([{ productId: "", quantity: "", unitPrice: "" }]);
 
@@ -68,7 +69,6 @@ export default function SalesPage() {
       cur.map((l, idx) => {
         if (idx !== i) return l;
         const next = { ...l, ...patch };
-        // When the product changes, prefill its selling price.
         if (patch.productId) {
           const p = products.find((x) => x.id === patch.productId);
           if (p) next.unitPrice = p.sellingPrice;
@@ -98,6 +98,7 @@ export default function SalesPage() {
         method: "POST",
         body: JSON.stringify({
           customerId: customerId || undefined,
+          paidInFull,
           amountPaid: Number(amountPaid) || 0,
           items: lines.map((l) => ({
             productId: l.productId,
@@ -108,6 +109,7 @@ export default function SalesPage() {
       });
       setLines([{ productId: products[0]?.id || "", quantity: "", unitPrice: products[0]?.sellingPrice || "" }]);
       setAmountPaid("");
+      setPaidInFull(true);
       setCustomerId("");
       setShowForm(false);
       await load();
@@ -169,8 +171,28 @@ export default function SalesPage() {
               </select>
             </div>
             <div className="field">
-              <label>Amount paid now</label>
-              <input type="number" step="0.01" placeholder="0.00" value={amountPaid} onChange={(e) => setAmountPaid(e.target.value)} />
+              <label>Payment</label>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 0" }}>
+                <input
+                  type="checkbox"
+                  id="paidInFull"
+                  style={{ width: "auto" }}
+                  checked={paidInFull}
+                  onChange={(e) => setPaidInFull(e.target.checked)}
+                />
+                <label htmlFor="paidInFull" style={{ margin: 0, fontWeight: 400 }}>
+                  Paid in full
+                </label>
+              </div>
+              {!paidInFull && (
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Amount paid now"
+                  value={amountPaid}
+                  onChange={(e) => setAmountPaid(e.target.value)}
+                />
+              )}
             </div>
           </div>
 

@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-// Wholesale is sold in whole packs and 0.5 / 0.25 fractions.
-// .multipleOf(0.25) enforces that; NOTE we deliberately do NOT use .int().
 export const qty = z
   .number()
   .positive("Quantity must be greater than 0")
@@ -40,6 +38,7 @@ export const purchaseSchema = z.object({
 export const saleSchema = z.object({
   customerId: z.string().optional(),
   amountPaid: z.number().nonnegative().default(0),
+  paidInFull: z.boolean().optional(),
   note: z.string().optional(),
   items: z
     .array(
@@ -52,8 +51,6 @@ export const saleSchema = z.object({
     .min(1, "Add at least one item"),
 });
 
-// Adjustment quantity may be negative (loss) or positive (found stock),
-// but must still land on a 0.25 step and never be zero.
 export const adjustmentSchema = z.object({
   productId: z.string().min(1),
   delta: z

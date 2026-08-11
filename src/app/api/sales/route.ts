@@ -6,8 +6,6 @@ import type { PaymentStatus } from "@prisma/client";
 
 const ref = () => `INV-${Date.now().toString(36).toUpperCase()}`;
 
-// Salespeople see only their own sales, with cost/profit fields removed.
-// Admins see everyone's sales, including who made each one.
 export async function GET() {
   return handle(async () => {
     const user = await requireUser();
@@ -26,7 +24,6 @@ export async function GET() {
 
     if (isAdmin) return ok(sales);
 
-    // Strip anything cost/profit-related before it leaves the server.
     const safe = sales.map((s) => {
       const sale = { ...s } as Record<string, unknown>;
       delete sale.cogs;
@@ -115,15 +112,17 @@ export async function POST(req: Request) {
         });
       }
 
-      const paid = money(data.amountPaid);
       const bill = money(subtotal);
+      // "Paid in full" auto-sets the amount to the whole bill; otherwise use
+      // exactly what was entered as paid now.
+      const paid = data.paidInFull ? bill : money(data.amountPaid);
       let status: PaymentStatus = "UNPAID";
       if (paid.gte(bill) && bill.gt(0)) status = "PAID";
       else if (paid.gt(0)) status = "PARTIAL";
 
       return tx.sale.update({
         where: { id: created.id },
-        data: { subtotal: bill, cogs: money(cogs), paymentStatus: status },
+        data: { subtotal: bill, cogs: money(cogs), amountPaid: paid, paymentStatus: status },
         include: { customer: true, items: { include: { product: true } } },
       });
     }, { maxWait: 15000, timeout: 25000 });
