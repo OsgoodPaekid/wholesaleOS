@@ -40,7 +40,6 @@ export default function PurchasesPage() {
       setSuppliers(s);
       setHistory(h);
       if (s[0]) setSupplierId((cur) => cur || s[0].id);
-      if (p[0]) setLines((cur) => (cur[0].productId ? cur : [{ productId: p[0].id, quantity: "", unitCost: "" }]));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load.");
     }
@@ -54,7 +53,7 @@ export default function PurchasesPage() {
     setLines((cur) => cur.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
   }
   function addLine() {
-    setLines((cur) => [...cur, { productId: products[0]?.id || "", quantity: "", unitCost: "" }]);
+    setLines((cur) => [...cur, { productId: "", quantity: "", unitCost: "" }]);
   }
   function removeLine(i: number) {
     setLines((cur) => (cur.length === 1 ? cur : cur.filter((_, idx) => idx !== i)));
@@ -64,6 +63,7 @@ export default function PurchasesPage() {
     (s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitCost) || 0),
     0
   );
+  const missingProduct = lines.some((l) => !l.productId);
 
   async function save() {
     setError("");
@@ -80,7 +80,7 @@ export default function PurchasesPage() {
           })),
         }),
       });
-      setLines([{ productId: products[0]?.id || "", quantity: "", unitCost: "" }]);
+      setLines([{ productId: "", quantity: "", unitCost: "" }]);
       setShowForm(false);
       await load();
     } catch (e) {
@@ -118,6 +118,7 @@ export default function PurchasesPage() {
           {lines.map((l, i) => (
             <div key={i} className="line-row">
               <select value={l.productId} onChange={(e) => setLine(i, { productId: e.target.value })}>
+                <option value="">Select product</option>
                 {products.map((p) => (
                   <option key={p.id} value={p.id}>{p.name}</option>
                 ))}
@@ -134,9 +135,14 @@ export default function PurchasesPage() {
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <button className="btn" onClick={save} disabled={saving || !supplierId}>
+            <button className="btn" onClick={save} disabled={saving || !supplierId || missingProduct}>
               {saving ? "Saving…" : "Save purchase"}
             </button>
+            {missingProduct && (
+              <span className="muted" style={{ marginLeft: 10, fontSize: 13 }}>
+                Choose a product for each item first.
+              </span>
+            )}
           </div>
           {error && <p className="error">{error}</p>}
         </div>

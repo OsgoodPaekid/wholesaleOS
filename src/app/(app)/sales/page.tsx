@@ -50,11 +50,6 @@ export default function SalesPage() {
       setHistory(h);
       setSummary(s);
       setIsAdmin(me.user?.role === "ADMIN");
-      if (p[0]) {
-        setLines((cur) =>
-          cur[0].productId ? cur : [{ productId: p[0].id, quantity: "", unitPrice: p[0].sellingPrice }]
-        );
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load.");
     }
@@ -69,6 +64,7 @@ export default function SalesPage() {
       cur.map((l, idx) => {
         if (idx !== i) return l;
         const next = { ...l, ...patch };
+        // When a real product is chosen, prefill its selling price.
         if (patch.productId) {
           const p = products.find((x) => x.id === patch.productId);
           if (p) next.unitPrice = p.sellingPrice;
@@ -78,8 +74,7 @@ export default function SalesPage() {
     );
   }
   function addLine() {
-    const p = products[0];
-    setLines((cur) => [...cur, { productId: p?.id || "", quantity: "", unitPrice: p?.sellingPrice || "" }]);
+    setLines((cur) => [...cur, { productId: "", quantity: "", unitPrice: "" }]);
   }
   function removeLine(i: number) {
     setLines((cur) => (cur.length === 1 ? cur : cur.filter((_, idx) => idx !== i)));
@@ -89,6 +84,7 @@ export default function SalesPage() {
     (s, l) => s + (Number(l.quantity) || 0) * (Number(l.unitPrice) || 0),
     0
   );
+  const missingProduct = lines.some((l) => !l.productId);
 
   async function save() {
     setError("");
@@ -107,7 +103,7 @@ export default function SalesPage() {
           })),
         }),
       });
-      setLines([{ productId: products[0]?.id || "", quantity: "", unitPrice: products[0]?.sellingPrice || "" }]);
+      setLines([{ productId: "", quantity: "", unitPrice: "" }]);
       setAmountPaid("");
       setPaidInFull(true);
       setCustomerId("");
@@ -202,6 +198,7 @@ export default function SalesPage() {
             return (
               <div key={i} className="line-row">
                 <select value={l.productId} onChange={(e) => setLine(i, { productId: e.target.value })}>
+                  <option value="">Select product</option>
                   {products.map((prod) => (
                     <option key={prod.id} value={prod.id}>
                       {prod.name} (have {Number(prod.stock)})
@@ -226,9 +223,14 @@ export default function SalesPage() {
           </div>
 
           <div style={{ marginTop: 14 }}>
-            <button className="btn" onClick={save} disabled={saving}>
+            <button className="btn" onClick={save} disabled={saving || missingProduct}>
               {saving ? "Saving…" : "Save sale"}
             </button>
+            {missingProduct && (
+              <span className="muted" style={{ marginLeft: 10, fontSize: 13 }}>
+                Choose a product for each item first.
+              </span>
+            )}
           </div>
           {error && <p className="error">{error}</p>}
         </div>
