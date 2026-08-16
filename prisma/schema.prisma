@@ -181,6 +181,10 @@ model SaleItem {
   unitPrice Decimal @db.Decimal(12, 2)
   lineTotal Decimal @db.Decimal(12, 2)
   unitCost  Decimal @db.Decimal(12, 2) // weighted FIFO cost for this line
+  // Set when an admin reverses this single line. Kept for the record but
+  // excluded from totals and best-selling reports.
+  voidedAt    DateTime?
+  voidedById  String?
 
   saleId    String
   sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)

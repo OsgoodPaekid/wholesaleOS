@@ -2,7 +2,6 @@ import { prisma } from "@/lib/prisma";
 import { handle, ok, fail, requireAdmin } from "@/lib/http";
 import { money } from "@/lib/money";
 
-// Parse a yyyy-mm-dd string into a local-midnight Date.
 function parseDay(s: string | null): Date | null {
   if (!s) return null;
   const [y, m, d] = s.split("-").map(Number);
@@ -10,8 +9,6 @@ function parseDay(s: string | null): Date | null {
   return new Date(y, m - 1, d);
 }
 
-// Admin only: total sales for a chosen date range, broken down by salesperson
-// and by best-selling product.
 export async function GET(req: Request) {
   return handle(async () => {
     await requireAdmin();
@@ -25,7 +22,6 @@ export async function GET(req: Request) {
       parseDay(url.searchParams.get("to")) ??
       new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // Include the whole "to" day by ending at the next midnight.
     const toExclusive = new Date(toDay.getFullYear(), toDay.getMonth(), toDay.getDate() + 1);
     if (toExclusive <= from) {
       throw fail("The 'to' date must be on or after the 'from' date.", 400);
@@ -42,11 +38,11 @@ export async function GET(req: Request) {
         where,
       }),
       prisma.user.findMany({ select: { id: true, name: true } }),
-      // Sum each product's revenue and quantity across sales in range (skip reversed).
+      // Exclude reversed lines AND lines belonging to reversed sales.
       prisma.saleItem.groupBy({
         by: ["productId"],
         _sum: { lineTotal: true, quantity: true },
-        where: { sale: where },
+        where: { voidedAt: null, sale: where },
       }),
       prisma.product.findMany({ select: { id: true, name: true, unit: true } }),
     ]);

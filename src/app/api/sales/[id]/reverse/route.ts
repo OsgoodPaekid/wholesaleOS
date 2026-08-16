@@ -3,8 +3,9 @@ import { handle, ok, fail, requireAdmin } from "@/lib/http";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-// Admin only. Reverses a sale: returns the sold goods to stock (as a batch at the
-// sale's recorded cost) and marks the sale as reversed. Kept for the audit trail.
+// Admin only. Reverses a whole sale: returns each still-active item's stock and
+// marks the sale reversed. Items already reversed line-by-line are skipped so
+// their stock isn't returned twice.
 export async function POST(_req: Request, { params }: Ctx) {
   return handle(async () => {
     const admin = await requireAdmin();
@@ -18,8 +19,8 @@ export async function POST(_req: Request, { params }: Ctx) {
 
       if (sale.voidedAt) throw fail("This sale has already been reversed.", 409);
 
-      // Put each item's quantity back into stock, at the cost it was sold at.
       for (const item of sale.items) {
+        if (item.voidedAt) continue; // already returned via a line reversal
         await tx.stockBatch.create({
           data: {
             productId: item.productId,
@@ -38,7 +39,7 @@ export async function POST(_req: Request, { params }: Ctx) {
         where: { id },
         data: { voidedAt: new Date(), voidedById: admin.userId },
       });
-    });
+    }, { maxWait: 15000, timeout: 25000 });
 
     return ok(result);
   });

@@ -1,11 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { api } from "@/lib/client";
 
 type Product = { id: string; name: string; unit: string; sellingPrice: string; stock: string };
 type Customer = { id: string; name: string };
 type Line = { productId: string; quantity: string; unitPrice: string };
+type SaleItem = {
+  id: string;
+  quantity: string;
+  lineTotal: string;
+  product: { name: string };
+  voidedAt: string | null;
+};
 type Sale = {
   id: string;
   reference: string;
@@ -13,7 +20,7 @@ type Sale = {
   paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
   createdAt: string;
   customer: { name: string } | null;
-  items: { id: string; quantity: string; product: { name: string } }[];
+  items: SaleItem[];
   voidedAt: string | null;
 };
 type Summary = { total: number; count: number };
@@ -30,6 +37,7 @@ export default function SalesPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [customerId, setCustomerId] = useState("");
   const [paidInFull, setPaidInFull] = useState(true);
@@ -64,7 +72,6 @@ export default function SalesPage() {
       cur.map((l, idx) => {
         if (idx !== i) return l;
         const next = { ...l, ...patch };
-        // When a real product is chosen, prefill its selling price.
         if (patch.productId) {
           const p = products.find((x) => x.id === patch.productId);
           if (p) next.unitPrice = p.sellingPrice;
@@ -116,10 +123,26 @@ export default function SalesPage() {
     }
   }
 
+  async function reverseItem(itemId: string, name: string) {
+    if (
+      !window.confirm(
+        `Reverse "${name}" from this sale? Its stock goes back and the sale total drops by that line. It stays on record as reversed.`
+      )
+    )
+      return;
+    setError("");
+    try {
+      await api(`/sale-items/${itemId}/reverse`, { method: "POST" });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not reverse.");
+    }
+  }
+
   async function reverseSale(id: string, reference: string) {
     if (
       !window.confirm(
-        `Reverse sale ${reference}? The stock will be returned and this sale will no longer count in your totals. It stays on record as "Reversed".`
+        `Reverse the whole sale ${reference}? All remaining stock goes back and the sale no longer counts in your totals.`
       )
     )
       return;
@@ -257,33 +280,85 @@ export default function SalesPage() {
                 <td colSpan={isAdmin ? 7 : 6} className="muted">No sales yet.</td>
               </tr>
             ) : (
-              history.map((s) => (
-                <tr key={s.id} style={s.voidedAt ? { opacity: 0.55 } : undefined}>
-                  <td className="num">{s.reference}</td>
-                  <td>{s.customer?.name || "Walk-in"}</td>
-                  <td>{s.items.map((it) => `${Number(it.quantity)} × ${it.product.name}`).join(", ")}</td>
-                  <td className="num">{new Date(s.createdAt).toLocaleDateString()}</td>
-                  <td className="right num">{cedis(s.subtotal)}</td>
-                  <td>
-                    {s.voidedAt ? (
-                      <span className="badge low">Reversed</span>
-                    ) : (
-                      <span className={`badge ${s.paymentStatus.toLowerCase()}`}>{s.paymentStatus}</span>
-                    )}
-                  </td>
-                  {isAdmin && (
-                    <td className="right">
-                      {s.voidedAt ? (
-                        <span className="muted">—</span>
-                      ) : (
-                        <button className="btn ghost" onClick={() => reverseSale(s.id, s.reference)}>
-                          Reverse
-                        </button>
+              history.map((s) => {
+                const activeItems = s.items.filter((it) => !it.voidedAt);
+                return (
+                  <Fragment key={s.id}>
+                    <tr style={s.voidedAt ? { opacity: 0.55 } : undefined}>
+                      <td className="num">{s.reference}</td>
+                      <td>{s.customer?.name || "Walk-in"}</td>
+                      <td>
+                        {activeItems.map((it) => `${Number(it.quantity)} × ${it.product.name}`).join(", ") || "—"}
+                      </td>
+                      <td className="num">{new Date(s.createdAt).toLocaleDateString()}</td>
+                      <td className="right num">{cedis(s.subtotal)}</td>
+                      <td>
+                        {s.voidedAt ? (
+                          <span className="badge low">Reversed</span>
+                        ) : (
+                          <span className={`badge ${s.paymentStatus.toLowerCase()}`}>{s.paymentStatus}</span>
+                        )}
+                      </td>
+                      {isAdmin && (
+                        <td className="right">
+                          <button
+                            className="btn ghost"
+                            onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
+                          >
+                            {expandedId === s.id ? "Close" : "Details"}
+                          </button>
+                        </td>
                       )}
-                    </td>
-                  )}
-                </tr>
-              ))
+                    </tr>
+
+                    {isAdmin && expandedId === s.id && (
+                      <tr>
+                        <td colSpan={7} style={{ background: "#fafbfc" }}>
+                          <div style={{ padding: "2px 0" }}>
+                            {s.items.map((it) => (
+                              <div
+                                key={it.id}
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: 12,
+                                  padding: "8px 0",
+                                  borderBottom: "1px solid var(--line)",
+                                }}
+                              >
+                                <span
+                                  style={
+                                    it.voidedAt
+                                      ? { textDecoration: "line-through", color: "var(--muted)" }
+                                      : undefined
+                                  }
+                                >
+                                  {Number(it.quantity)} × {it.product.name} — {cedis(it.lineTotal)}
+                                </span>
+                                {it.voidedAt ? (
+                                  <span className="badge low">Reversed</span>
+                                ) : !s.voidedAt ? (
+                                  <button className="btn ghost" onClick={() => reverseItem(it.id, it.product.name)}>
+                                    Reverse this
+                                  </button>
+                                ) : null}
+                              </div>
+                            ))}
+                            {!s.voidedAt && activeItems.length > 1 && (
+                              <div style={{ marginTop: 12 }}>
+                                <button className="btn ghost" onClick={() => reverseSale(s.id, s.reference)}>
+                                  Reverse whole sale
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })
             )}
           </tbody>
         </table>
