@@ -21,17 +21,20 @@ export const productSchema = z.object({
   lowStockThreshold: z.number().nonnegative().default(5),
 });
 
+export const productUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  sku: z.string().min(1).optional(),
+  unit: z.string().min(1).optional(),
+  sellingPrice: price.optional(),
+  categoryId: z.string().min(1).optional(),
+  lowStockThreshold: z.number().nonnegative().optional(),
+});
+
 export const purchaseSchema = z.object({
   supplierId: z.string().min(1),
   note: z.string().optional(),
   items: z
-    .array(
-      z.object({
-        productId: z.string().min(1),
-        quantity: qty,
-        unitCost: price,
-      })
-    )
+    .array(z.object({ productId: z.string().min(1), quantity: qty, unitCost: price }))
     .min(1, "Add at least one item"),
 });
 
@@ -41,13 +44,7 @@ export const saleSchema = z.object({
   paidInFull: z.boolean().optional(),
   note: z.string().optional(),
   items: z
-    .array(
-      z.object({
-        productId: z.string().min(1),
-        quantity: qty,
-        unitPrice: price,
-      })
-    )
+    .array(z.object({ productId: z.string().min(1), quantity: qty, unitPrice: price }))
     .min(1, "Add at least one item"),
 });
 
