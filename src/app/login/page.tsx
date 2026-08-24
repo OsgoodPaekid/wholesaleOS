@@ -5,10 +5,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { api } from "@/lib/client";
 
 // Only allow redirects to internal paths — blocks open-redirect to other sites
-// (e.g. ?next=https://evil.com or ?next=//evil.com).
-function safeNext(next: string | null): string {
+// (e.g. ?next=https://evil.com or ?next=//evil.com). Returns null if unsafe.
+function safeInternal(next: string | null): string | null {
   if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-  return "/dashboard";
+  return null;
 }
 
 function LoginForm() {
@@ -23,11 +23,13 @@ function LoginForm() {
     setError("");
     setLoading(true);
     try {
-      await api("/auth/login", {
+      const user = await api<{ role: string }>("/auth/login", {
         method: "POST",
         body: JSON.stringify({ email, password }),
       });
-      router.push(safeNext(params.get("next")));
+      // Send each person to a page they can actually use.
+      const home = user.role === "ADMIN" ? "/dashboard" : "/sales";
+      router.push(safeInternal(params.get("next")) ?? home);
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not sign in.");
