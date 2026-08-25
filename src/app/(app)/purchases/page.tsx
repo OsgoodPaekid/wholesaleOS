@@ -1,18 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { api } from "@/lib/client";
 
 type Product = { id: string; name: string; unit: string };
 type Supplier = { id: string; name: string };
 type Line = { productId: string; quantity: string; unitCost: string };
+type PurchaseItem = {
+  id: string;
+  quantity: string;
+  unitCost: string;
+  lineTotal: string;
+  product: { name: string };
+};
 type Purchase = {
   id: string;
   reference: string;
   total: string;
   createdAt: string;
   supplier: { name: string };
-  items: { id: string }[];
+  items: PurchaseItem[];
 };
 
 const cedis = (n: string | number) =>
@@ -25,6 +32,7 @@ export default function PurchasesPage() {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const [supplierId, setSupplierId] = useState("");
   const [lines, setLines] = useState<Line[]>([{ productId: "", quantity: "", unitCost: "" }]);
@@ -159,22 +167,61 @@ export default function PurchasesPage() {
               <th>Date</th>
               <th className="right">Items</th>
               <th className="right">Total</th>
+              <th className="right">Details</th>
             </tr>
           </thead>
           <tbody>
             {history.length === 0 ? (
               <tr>
-                <td colSpan={5} className="muted">No purchases yet.</td>
+                <td colSpan={6} className="muted">No purchases yet.</td>
               </tr>
             ) : (
               history.map((h) => (
-                <tr key={h.id}>
-                  <td className="num">{h.reference}</td>
-                  <td>{h.supplier?.name}</td>
-                  <td className="num">{new Date(h.createdAt).toLocaleDateString()}</td>
-                  <td className="right num">{h.items.length}</td>
-                  <td className="right num">{cedis(h.total)}</td>
-                </tr>
+                <Fragment key={h.id}>
+                  <tr>
+                    <td className="num">{h.reference}</td>
+                    <td>{h.supplier?.name}</td>
+                    <td className="num">{new Date(h.createdAt).toLocaleDateString()}</td>
+                    <td className="right num">{h.items.length}</td>
+                    <td className="right num">{cedis(h.total)}</td>
+                    <td className="right">
+                      <button
+                        className="btn ghost"
+                        onClick={() => setExpandedId(expandedId === h.id ? null : h.id)}
+                      >
+                        {expandedId === h.id ? "Close" : "View"}
+                      </button>
+                    </td>
+                  </tr>
+
+                  {expandedId === h.id && (
+                    <tr>
+                      <td colSpan={6} style={{ background: "#fafbfc" }}>
+                        <div style={{ padding: "2px 0" }}>
+                          {h.items.map((it) => (
+                            <div
+                              key={it.id}
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 12,
+                                padding: "8px 0",
+                                borderBottom: "1px solid var(--line)",
+                              }}
+                            >
+                              <span>
+                                {Number(it.quantity)} × {it.product.name}
+                                <span className="muted"> @ {cedis(it.unitCost)} each</span>
+                              </span>
+                              <span className="num">{cedis(it.lineTotal)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))
             )}
           </tbody>
