@@ -17,6 +17,7 @@ type Sale = {
   id: string;
   reference: string;
   subtotal: string;
+  amountPaid: string;
   paymentStatus: "PAID" | "PARTIAL" | "UNPAID";
   createdAt: string;
   customer: { name: string } | null;
@@ -120,6 +121,42 @@ export default function SalesPage() {
       setError(e instanceof Error ? e.message : "Could not save.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function markPaid(saleId: string) {
+    const sale = history.find((s) => s.id === saleId);
+    if (!sale) return;
+    if (!window.confirm(`Mark sale ${sale.reference} as fully paid (${cedis(sale.subtotal)})?`)) return;
+    setError("");
+    try {
+      await api(`/sales/${saleId}/payment`, {
+        method: "POST",
+        body: JSON.stringify({ amountPaid: Number(sale.subtotal) }),
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update payment.");
+    }
+  }
+
+  async function recordPayment(saleId: string) {
+    const entered = window.prompt("Total amount paid on this sale so far:");
+    if (entered === null) return;
+    const n = Number(entered);
+    if (Number.isNaN(n) || n < 0) {
+      setError("Please enter a valid amount.");
+      return;
+    }
+    setError("");
+    try {
+      await api(`/sales/${saleId}/payment`, {
+        method: "POST",
+        body: JSON.stringify({ amountPaid: n }),
+      });
+      await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not update payment.");
     }
   }
 
@@ -315,6 +352,29 @@ export default function SalesPage() {
                       <tr>
                         <td colSpan={7} style={{ background: "#fafbfc" }}>
                           <div style={{ padding: "2px 0" }}>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                alignItems: "center",
+                                gap: 12,
+                                flexWrap: "wrap",
+                                padding: "8px 0",
+                                borderBottom: "1px solid var(--line)",
+                              }}
+                            >
+                              <span>
+                                Payment: <strong>{s.voidedAt ? "Reversed" : s.paymentStatus}</strong>
+                                <span className="muted"> — paid {cedis(s.amountPaid)} of {cedis(s.subtotal)}</span>
+                              </span>
+                              {!s.voidedAt && s.paymentStatus !== "PAID" && (
+                                <span style={{ display: "flex", gap: 8 }}>
+                                  <button className="btn ghost" onClick={() => markPaid(s.id)}>Mark as paid</button>
+                                  <button className="btn ghost" onClick={() => recordPayment(s.id)}>Part payment</button>
+                                </span>
+                              )}
+                            </div>
+
                             {s.items.map((it) => (
                               <div
                                 key={it.id}
