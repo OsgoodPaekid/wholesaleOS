@@ -3,13 +3,16 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/client";
 
+type ProductRow = { id: string; name: string; unit: string; quantity: number; total: number };
 type Report = {
   from: string;
   to: string;
   total: number;
   count: number;
+  itemsSold: number;
   bySalesperson: { id: string; name: string; total: number; count: number }[];
-  topProducts: { id: string; name: string; unit: string; quantity: number; total: number }[];
+  topProducts: ProductRow[];
+  allProducts: ProductRow[];
 };
 
 const cedis = (n: number) =>
@@ -65,7 +68,7 @@ export default function SalesReportPage() {
       <div className="page-head">
         <div>
           <h1>Sales report</h1>
-          <p>Total sales for any date range, and who sold what.</p>
+          <p>Total sales for any date range, who sold what, and every product sold.</p>
         </div>
       </div>
 
@@ -92,7 +95,7 @@ export default function SalesReportPage() {
 
       {data && !error && (
         <>
-          <div className="grid stats" style={{ gridTemplateColumns: "repeat(2, 1fr)", maxWidth: 520, marginBottom: 16 }}>
+          <div className="grid stats" style={{ gridTemplateColumns: "repeat(3, 1fr)", maxWidth: 780, marginBottom: 16 }}>
             <div className="card stat">
               <div className="label">Total sales</div>
               <div className="value num">{cedis(data.total)}</div>
@@ -104,6 +107,11 @@ export default function SalesReportPage() {
               <div className="label">Number of sales</div>
               <div className="value num">{data.count}</div>
               <div className="sub">{loading ? "Updating…" : "in this period"}</div>
+            </div>
+            <div className="card stat">
+              <div className="label">Items sold</div>
+              <div className="value num">{data.itemsSold}</div>
+              <div className="sub">units, all products</div>
             </div>
           </div>
 
@@ -135,7 +143,7 @@ export default function SalesReportPage() {
             </table>
           </div>
 
-          <h3 style={{ fontSize: 15, margin: "22px 0 12px" }}>Best-selling products</h3>
+          <h3 style={{ fontSize: 15, margin: "22px 0 12px" }}>Best-selling products (top 10)</h3>
           <div className="table-wrap">
             <table>
               <thead>
@@ -155,6 +163,39 @@ export default function SalesReportPage() {
                   data.topProducts.map((p, i) => (
                     <tr key={p.id}>
                       <td className="num">{i + 1}</td>
+                      <td>{p.name}</td>
+                      <td className="right num">{p.quantity} {p.unit}</td>
+                      <td className="right num">{cedis(p.total)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <h3 style={{ fontSize: 15, margin: "22px 0 12px" }}>
+            All products sold{" "}
+            <span className="muted" style={{ fontWeight: 400 }}>
+              ({data.allProducts.length})
+            </span>
+          </h3>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th className="right">Units sold</th>
+                  <th className="right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.allProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="muted">No sales in this period.</td>
+                  </tr>
+                ) : (
+                  data.allProducts.map((p) => (
+                    <tr key={p.id}>
                       <td>{p.name}</td>
                       <td className="right num">{p.quantity} {p.unit}</td>
                       <td className="right num">{cedis(p.total)}</td>

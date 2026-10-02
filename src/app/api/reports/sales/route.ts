@@ -58,7 +58,8 @@ export async function GET(req: Request) {
       .sort((a, b) => b.total - a.total);
 
     const prodById = new Map(products.map((p) => [p.id, p]));
-    const topProducts = productGroups
+    // Every product sold in the range, ranked by revenue (highest first).
+    const rankedProducts = productGroups
       .map((g) => ({
         id: g.productId,
         name: prodById.get(g.productId)?.name ?? "Unknown",
@@ -66,16 +67,20 @@ export async function GET(req: Request) {
         quantity: Number(g._sum.quantity ?? 0),
         total: Number(money(g._sum.lineTotal ?? 0)),
       }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
+      .sort((a, b) => b.total - a.total);
+
+    // Total units sold across ALL products (not just the top 10).
+    const itemsSold = rankedProducts.reduce((s, p) => s + p.quantity, 0);
 
     return ok({
       from: from.toISOString().slice(0, 10),
       to: toDay.toISOString().slice(0, 10),
       total: Number(money(agg._sum.subtotal ?? 0)),
       count: agg._count,
+      itemsSold,
       bySalesperson,
-      topProducts,
+      topProducts: rankedProducts.slice(0, 10),
+      allProducts: rankedProducts,
     });
   });
 }
