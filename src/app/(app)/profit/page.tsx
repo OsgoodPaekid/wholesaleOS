@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { api } from "@/lib/client";
 
 type Profit = {
-  range: string;
+  from: string | null;
+  to: string | null;
   salesCount: number;
   revenue: number;
   cogs: number;
@@ -13,19 +14,21 @@ type Profit = {
   netProfit: number;
 };
 
-const RANGES = [
-  { key: "today", label: "Today" },
-  { key: "week", label: "Last 7 days" },
-  { key: "month", label: "This month" },
-  { key: "year", label: "This year" },
-  { key: "all", label: "All time" },
-];
-
 const cedis = (n: number) =>
   `GHS ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+// Local yyyy-mm-dd helper.
+const ymd = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
 export default function ProfitPage() {
-  const [range, setRange] = useState("month");
+  const today = new Date();
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+
+  const [from, setFrom] = useState(ymd(monthStart));
+  const [to, setTo] = useState(ymd(today));
   const [data, setData] = useState<Profit | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -33,13 +36,36 @@ export default function ProfitPage() {
   useEffect(() => {
     setLoading(true);
     setError("");
-    api<Profit>(`/reports/profit?range=${range}`)
+    api<Profit>(`/reports/profit?from=${from}&to=${to}`)
       .then(setData)
       .catch((e) => setError(e instanceof Error ? e.message : "Failed to load."))
       .finally(() => setLoading(false));
-  }, [range]);
+  }, [from, to]);
 
-  const rowStyle: React.CSSProperties = {
+  // Quick presets adjust the two date boxes. "All time" clears both.
+  function preset(kind: "today" | "week" | "month" | "year" | "all") {
+    const now = new Date();
+    if (kind === "today") {
+      setFrom(ymd(now));
+      setTo(ymd(now));
+    } else if (kind === "week") {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 6);
+      setFrom(ymd(d));
+      setTo(ymd(now));
+    } else if (kind === "month") {
+      setFrom(ymd(new Date(now.getFullYear(), now.getMonth(), 1)));
+      setTo(ymd(now));
+    } else if (kind === "year") {
+      setFrom(ymd(new Date(now.getFullYear(), 0, 1)));
+      setTo(ymd(now));
+    } else {
+      setFrom("");
+      setTo("");
+    }
+  }
+
+  const rowStyle: CSSProperties = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "baseline",
@@ -47,25 +73,43 @@ export default function ProfitPage() {
     borderBottom: "1px solid var(--line)",
   };
 
+  const rangeLabel = data
+    ? data.from && data.to
+      ? `${data.from} to ${data.to}`
+      : data.from
+      ? `Since ${data.from}`
+      : data.to
+      ? `Up to ${data.to}`
+      : "All time"
+    : "";
+
   return (
     <>
       <div className="page-head">
         <div>
           <h1>Profit</h1>
-          <p>Your real bottom line — sales, minus what goods cost, minus expenses.</p>
+          <p>Your real bottom line — sales, minus what goods cost, minus expenses — for any period.</p>
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-        {RANGES.map((r) => (
-          <button
-            key={r.key}
-            className={`btn ${range === r.key ? "" : "ghost"}`}
-            onClick={() => setRange(r.key)}
-          >
-            {r.label}
-          </button>
-        ))}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", gap: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>From</label>
+            <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div className="field" style={{ marginBottom: 0 }}>
+            <label>To</label>
+            <input type="date" value={to} min={from || undefined} onChange={(e) => setTo(e.target.value)} />
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <button className="btn ghost" onClick={() => preset("today")}>Today</button>
+            <button className="btn ghost" onClick={() => preset("week")}>Last 7 days</button>
+            <button className="btn ghost" onClick={() => preset("month")}>This month</button>
+            <button className="btn ghost" onClick={() => preset("year")}>This year</button>
+            <button className="btn ghost" onClick={() => preset("all")}>All time</button>
+          </div>
+        </div>
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -110,7 +154,7 @@ export default function ProfitPage() {
           </div>
 
           <p className="muted" style={{ fontSize: 13, marginTop: 16, marginBottom: 0 }}>
-            Based on {data.salesCount} sale{data.salesCount === 1 ? "" : "s"} in this period.
+            {rangeLabel} · based on {data.salesCount} sale{data.salesCount === 1 ? "" : "s"}.
             {loading ? " Updating…" : ""}
           </p>
         </div>

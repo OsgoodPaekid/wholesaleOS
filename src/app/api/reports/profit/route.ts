@@ -1,39 +1,41 @@
 import { prisma } from "@/lib/prisma";
-import { handle, ok, requireAdmin } from "@/lib/http";
+import { handle, ok, fail, requireAdmin } from "@/lib/http";
 import { D, money } from "@/lib/money";
 
-// Lower bound for each period. "all" returns null (no lower bound).
-function rangeStart(range: string): Date | null {
-  const now = new Date();
-  switch (range) {
-    case "today":
-      return new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    case "week": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      return d;
-    }
-    case "month":
-      return new Date(now.getFullYear(), now.getMonth(), 1);
-    case "year":
-      return new Date(now.getFullYear(), 0, 1);
-    default:
-      return null; // "all"
-  }
+function parseDay(s: string | null): Date | null {
+  if (!s) return null;
+  const [y, m, d] = s.split("-").map(Number);
+  if (!y || !m || !d) return null;
+  return new Date(y, m - 1, d);
 }
 
 // Admin only: this is the true bottom line (includes expenses).
+// Accepts optional from/to (yyyy-mm-dd). Blank = no bound on that side
+// (so blank/blank means all time). Sales and expenses use the same window.
 export async function GET(req: Request) {
   return handle(async () => {
     await requireAdmin();
-    const range = new URL(req.url).searchParams.get("range") || "month";
-    const start = rangeStart(range);
-    const saleWhere = start ? { createdAt: { gte: start }, voidedAt: null } : { voidedAt: null };
-    const where = start ? { createdAt: { gte: start } } : {};
+    const url = new URL(req.url);
+    const from = parseDay(url.searchParams.get("from"));
+    const toDay = parseDay(url.searchParams.get("to"));
+    const lt = toDay
+      ? new Date(toDay.getFullYear(), toDay.getMonth(), toDay.getDate() + 1)
+      : null;
+    if (from && lt && lt <= from) {
+      throw fail("The 'to' date must be on or after the 'from' date.", 400);
+    }
+
+    const createdAt: { gte?: Date; lt?: Date } = {};
+    if (from) createdAt.gte = from;
+    if (lt) createdAt.lt = lt;
+    const hasRange = Boolean(from || lt);
+
+    const saleWhere = hasRange ? { voidedAt: null, createdAt } : { voidedAt: null };
+    const expWhere = hasRange ? { createdAt } : {};
 
     const [saleAgg, expAgg, salesCount] = await Promise.all([
       prisma.sale.aggregate({ _sum: { subtotal: true, cogs: true }, where: saleWhere }),
-      prisma.expense.aggregate({ _sum: { amount: true }, where }),
+      prisma.expense.aggregate({ _sum: { amount: true }, where: expWhere }),
       prisma.sale.count({ where: saleWhere }),
     ]);
 
@@ -44,7 +46,8 @@ export async function GET(req: Request) {
     const netProfit = grossProfit.minus(expenses);
 
     return ok({
-      range,
+      from: from ? from.toISOString().slice(0, 10) : null,
+      to: toDay ? toDay.toISOString().slice(0, 10) : null,
       salesCount,
       revenue: Number(money(revenue)),
       cogs: Number(money(cogs)),
