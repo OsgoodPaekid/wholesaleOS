@@ -20,11 +20,12 @@ const ADMIN_LINKS = [
   { href: "/users", label: "Users" },
 ];
 
-// Salespeople only see what they're allowed to use.
+// Salespeople see their work areas plus the shop sales report.
 const SALES_LINKS = [
   { href: "/sales", label: "Sales" },
   { href: "/products", label: "Products" },
   { href: "/customers", label: "Customers" },
+  { href: "/reports", label: "Sales report" },
   { href: "/notes", label: "Notes" },
 ];
 

@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { handle, ok, fail, requireAdmin } from "@/lib/http";
+import { handle, ok, fail, requireUser } from "@/lib/http";
 import { money } from "@/lib/money";
 
 function parseDay(s: string | null): Date | null {
@@ -11,7 +11,7 @@ function parseDay(s: string | null): Date | null {
 
 export async function GET(req: Request) {
   return handle(async () => {
-    await requireAdmin();
+    await requireUser();
     const url = new URL(req.url);
     const now = new Date();
 
@@ -38,7 +38,6 @@ export async function GET(req: Request) {
         where,
       }),
       prisma.user.findMany({ select: { id: true, name: true } }),
-      // Exclude reversed lines AND lines belonging to reversed sales.
       prisma.saleItem.groupBy({
         by: ["productId"],
         _sum: { lineTotal: true, quantity: true },
@@ -58,7 +57,6 @@ export async function GET(req: Request) {
       .sort((a, b) => b.total - a.total);
 
     const prodById = new Map(products.map((p) => [p.id, p]));
-    // Every product sold in the range, ranked by revenue (highest first).
     const rankedProducts = productGroups
       .map((g) => ({
         id: g.productId,
@@ -69,7 +67,6 @@ export async function GET(req: Request) {
       }))
       .sort((a, b) => b.total - a.total);
 
-    // Total units sold across ALL products (not just the top 10).
     const itemsSold = rankedProducts.reduce((s, p) => s + p.quantity, 0);
 
     return ok({
