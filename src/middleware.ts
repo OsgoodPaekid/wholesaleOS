@@ -3,7 +3,7 @@ import type { NextRequest } from "next/server";
 import { verifyToken, SESSION_COOKIE } from "@/lib/auth";
 
 // Guard every /app page. API routes do their own auth checks.
-const PROTECTED = ["/dashboard", "/products", "/purchases", "/sales", "/stock", "/expenses", "/customers", "/suppliers", "/users", "/profit", "/reports"];
+const PROTECTED = ["/dashboard", "/products", "/purchases", "/sales", "/stock", "/expenses", "/customers", "/suppliers", "/users", "/profit", "/reports", "/notes"];
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
@@ -22,5 +22,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/products/:path*", "/purchases/:path*", "/sales/:path*", "/stock/:path*", "/expenses/:path*", "/customers/:path*", "/suppliers/:path*", "/users/:path*", "/profit/:path*", "/reports/:path*"],
+  matcher: ["/dashboard/:path*", "/products/:path*", "/purchases/:path*", "/sales/:path*", "/stock/:path*", "/expenses/:path*", "/customers/:path*", "/suppliers/:path*", "/users/:path*", "/profit/:path*", "/reports/:path*", "/notes/:path*"],
 };

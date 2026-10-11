@@ -16,6 +16,7 @@ const ADMIN_LINKS = [
   { href: "/expenses", label: "Expenses" },
   { href: "/customers", label: "Customers" },
   { href: "/suppliers", label: "Suppliers" },
+  { href: "/notes", label: "Notes" },
   { href: "/users", label: "Users" },
 ];
 
@@ -24,6 +25,7 @@ const SALES_LINKS = [
   { href: "/sales", label: "Sales" },
   { href: "/products", label: "Products" },
   { href: "/customers", label: "Customers" },
+  { href: "/notes", label: "Notes" },
 ];
 
 export default function Sidebar({ name, role }: { name: string; role: string }) {

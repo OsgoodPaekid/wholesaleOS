@@ -223,3 +223,13 @@ model Expense {
 
   @@index([createdAt])
 }
+
+model Note {
+  id            String   @id @default(cuid())
+  body          String
+  createdById   String
+  createdByName String
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+}
