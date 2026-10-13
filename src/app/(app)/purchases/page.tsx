@@ -29,6 +29,7 @@ export default function PurchasesPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [history, setHistory] = useState<Purchase[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -39,15 +40,23 @@ export default function PurchasesPage() {
 
   async function load() {
     try {
-      const [p, s, h] = await Promise.all([
-        api<Product[]>("/products"),
-        api<Supplier[]>("/suppliers"),
-        api<Purchase[]>("/purchases"),
-      ]);
-      setProducts(p);
-      setSuppliers(s);
+      const me = await api<{ user: { role: string } | null }>("/auth/me");
+      const admin = me.user?.role === "ADMIN";
+      setIsAdmin(admin);
+
+      const h = await api<Purchase[]>("/purchases");
       setHistory(h);
-      if (s[0]) setSupplierId((cur) => cur || s[0].id);
+
+      // Only admins can add purchases, so only they need the form's data.
+      if (admin) {
+        const [p, s] = await Promise.all([
+          api<Product[]>("/products"),
+          api<Supplier[]>("/suppliers"),
+        ]);
+        setProducts(p);
+        setSuppliers(s);
+        if (s[0]) setSupplierId((cur) => cur || s[0].id);
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load.");
     }
@@ -103,14 +112,20 @@ export default function PurchasesPage() {
       <div className="page-head">
         <div>
           <h1>Purchases</h1>
-          <p>Record stock coming in. This raises stock and locks each item&apos;s cost.</p>
+          <p>
+            {isAdmin
+              ? "Record stock coming in. This raises stock and locks each item's cost."
+              : "Stock that has come in, with costs. View only."}
+          </p>
         </div>
-        <button className="btn" onClick={() => setShowForm((s) => !s)}>
-          {showForm ? "Close" : "New purchase"}
-        </button>
+        {isAdmin && (
+          <button className="btn" onClick={() => setShowForm((s) => !s)}>
+            {showForm ? "Close" : "New purchase"}
+          </button>
+        )}
       </div>
 
-      {showForm && (
+      {isAdmin && showForm && (
         <div className="card" style={{ marginBottom: 16 }}>
           <div className="field" style={{ maxWidth: 320 }}>
             <label>Supplier</label>

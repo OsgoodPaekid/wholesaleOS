@@ -1,14 +1,14 @@
 import { prisma } from "@/lib/prisma";
-import { handle, ok, requireAdmin } from "@/lib/http";
+import { handle, ok, requireAdmin, requireUser } from "@/lib/http";
 import { purchaseSchema } from "@/lib/validation";
 import { D, money, ZERO } from "@/lib/money";
 
 const ref = () => `PO-${Date.now().toString(36).toUpperCase()}`;
 
-// Admin only: purchases contain cost prices.
+// Viewing is open to any signed-in user (costs are shown); creating is admin-only.
 export async function GET() {
   return handle(async () => {
-    await requireAdmin();
+    await requireUser();
     const purchases = await prisma.purchase.findMany({
       include: { supplier: true, items: { include: { product: true } } },
       orderBy: { createdAt: "desc" },
